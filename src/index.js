@@ -15,6 +15,7 @@ const { updatePursePriceTerm } = require('./updatePursePriceTerm');
 const { renewTerm } = require('./renewTerm');
 const { purchaseTerm } = require('./purchaseTerm');
 const { withdrawTerm } = require('./withdrawTerm');
+const { purchaseAndWithdrawTerm } = require('./purchaseAndWithdrawTerm');
 
 // utils
 const { decodePurses } = require('./decodePurses');
@@ -35,6 +36,7 @@ module.exports = {
   purchaseTerm,
   renewTerm,
   withdrawTerm,
+  purchaseAndWithdrawTerm,
 
   readPursesTerm,
   readAllPursesTerm,
