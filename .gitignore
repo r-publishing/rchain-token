@@ -10,3 +10,5 @@ purses.json
 stresslogs/*
 rnode.data*
 name-*
+
+.turbo
