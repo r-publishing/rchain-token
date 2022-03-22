@@ -1,18 +1,25 @@
 const rc = require('rchain-toolkit');
 require('dotenv').config();
 
-const getAllData = require('../tests-ft/getAllData').main;
 const checkPursesInContract = require('./checkPursesInContract.js').main;
-const checkPursesSameTimestampInContract =
-  require('./checkPursesSameTimestampInContract.js').main;
 const createPurses = require('./test_createPurses.js').main;
+const deletePurse = require('./test_deletePurse.js').main;
 const deleteExpiredPurse = require('./test_deleteExpiredPurse.js').main;
 const checkPursesInBox = require('./checkPursesInBox.js').main;
 const getRandomName = require('./getRandomName.js').main;
 const renew = require('./test_renew.js').main;
 
+const credit = require('../tests-ft/test_credit').main;
+const fillBalances = require('../tests-ft/fillBalances').main;
+const getAllData = require('../tests-ft/getAllData').main;
+const getAllBoxData = require('../tests-ft/getAllBoxData').main;
+const checkPursesInContractFT = require('../tests-ft/checkPursesInContract.js').main;
+const swap = require('../tests-ft/test_swap').main;
+const checkLogsInContract = require('../tests-ft/checkLogsInContract').main;
 const checkPursePriceInContract =
   require('../tests-ft/checkPursePriceInContract.js').main;
+const checkFee = require('../tests-ft/checkFee').main;
+const updateFee = require('../tests-ft/test_updateFee').main;
 const checkPurseDataInContract =
   require('../tests-ft/checkPurseDataInContract.js').main;
 const getBalance = require('../tests-ft/getBalance').main;
@@ -23,35 +30,42 @@ const withdraw = require('../tests-ft/test_withdraw').main;
 const checkDefaultPurses = require('../tests-ft/test_checkDefaultPurses').main;
 const updatePurseData = require('../tests-ft/test_updatePurseData.js').main;
 const updatePursePrice = require('../tests-ft/test_updatePursePrice.js').main;
-const purchase = require('../tests-ft/test_purchase').main;
 
+const WRAPPED_REV_QUANTITY = 100 * 100000000;
 const PURSES_TO_CREATE = 10;
 // the goal is that step 17 fails multiple time
 // and then succeeds
-const EXPIRES = 570000;
+const EXPIRES = 700000;
 
-const PRIVATE_KEY =
-  '28a5c9ac133b4449ca38e9bdf7cacdce31079ef6b3ac2f0a080af83ecff98b36';
+const PRIVATE_KEY = '28a5c9ac133b4449ca38e9bdf7cacdce31079ef6b3ac2f0a080af83ecff98b36';
 const PUBLIC_KEY = rc.utils.publicKeyFromPrivateKey(PRIVATE_KEY);
 
-const PRIVATE_KEY_2 =
-  'a2803d16030f83757a5043e5c0e28573685f6d8bf4e358bf1385d82bffa8e698';
+const PRIVATE_KEY_2 = 'a2803d16030f83757a5043e5c0e28573685f6d8bf4e358bf1385d82bffa8e698';
 const PUBLIC_KEY_2 = rc.utils.publicKeyFromPrivateKey(PRIVATE_KEY_2);
 
-const PUBLIC_KEY_3 =
-  '0459030bff5123ffa8360fe0c57b97c5d5578bd6da07af17a7879c2081153acea0f0f40c88f1615e763121123cded66844eab6dfeb46892fb095076648c0066274';
+const PRIVATE_KEY_3 = "62dce7c35de80ba4bbdebc2653d3ca4d7b46454a7b7a992ef36593f5a0c81b31"
+const PUBLIC_KEY_3 = rc.utils.publicKeyFromPrivateKey(PRIVATE_KEY_3);
 
 const balances1 = [];
 const balances2 = [];
 const balances3 = [];
 
 const main = async () => {
+  await fillBalances(PRIVATE_KEY, PUBLIC_KEY, PUBLIC_KEY_2, PUBLIC_KEY_3);
   balances1.push(await getBalance(PUBLIC_KEY));
   balances2.push(await getBalance(PUBLIC_KEY_2));
   balances3.push(await getBalance(PUBLIC_KEY_3));
+  console.log(`  balances (dust) : (1) ${balances1[0]}, (2) ${balances2[0]}, (3) ${balances3[0]}`)
+
+  let boxId1 = "box1";
+  let boxId2 = "box2";
+  let boxId3 = "box3";
+  let contractId = "mytoken";
+  let prefix = '';
 
   const data = await deployMaster(PRIVATE_KEY, PUBLIC_KEY);
   const masterRegistryUri = data.registryUri.replace('rho:id:', '');
+  prefix = masterRegistryUri.slice(0, 3);
 
   const contractRegistryUri = data.registryUri.replace('rho:id:', '');
   balances1.push(await getBalance(PUBLIC_KEY));
@@ -61,21 +75,35 @@ const main = async () => {
       (balances1[balances1.length - 2] - balances1[balances1.length - 1])
   );
 
-  const dataBox = await deployBox(
+  await deployBox(
     PRIVATE_KEY,
     PUBLIC_KEY,
     masterRegistryUri,
-    'box1'
+    boxId1
   );
   balances1.push(await getBalance(PUBLIC_KEY));
+  boxId1 = `${prefix}${boxId1}`
+  console.log('  Box 1 with prefix : ' + boxId1)
 
-  const secondDataBox = await deployBox(
+  await deployBox(
     PRIVATE_KEY_2,
     PUBLIC_KEY_2,
     masterRegistryUri,
-    'box2'
+    boxId2
   );
   balances2.push(await getBalance(PUBLIC_KEY_2));
+  boxId2 = `${prefix}${boxId2}`
+  console.log('  Box 2 with prefix : ' + boxId2)
+
+  await deployBox(
+    PRIVATE_KEY_3,
+    PUBLIC_KEY_3,
+    masterRegistryUri,
+    boxId3
+  );
+  balances3.push(await getBalance(PUBLIC_KEY_3));
+  boxId3 = `${prefix}${boxId3}`
+  console.log('  Box 3 with prefix : ' + boxId3)
 
   console.log('✓ 02 deploy boxes');
   console.log(
@@ -83,25 +111,53 @@ const main = async () => {
       (balances1[balances1.length - 2] - balances1[balances1.length - 1])
   );
 
-  await checkDefaultPurses(masterRegistryUri, 'box1');
-  await checkDefaultPurses(masterRegistryUri, 'box2');
+  await checkDefaultPurses(masterRegistryUri, boxId1);
+  await checkDefaultPurses(masterRegistryUri, boxId2);
   console.log('✓ 02 check initial purses in boxes');
+
+  const creditResult = await credit(
+    PRIVATE_KEY,
+    {
+      revAddress: rc.utils.revAddressFromPublicKey(PUBLIC_KEY),
+      quantity: WRAPPED_REV_QUANTITY,
+      masterRegistryUri: masterRegistryUri,
+      boxId: boxId1
+    }
+  );
+  if (creditResult.status !== "completed") {
+    console.log(creditResult);
+    throw new Error('credit should have worked')
+  }
+  console.log('✓ 02.1 credit box1 in [prefix]rev');
 
   const deployData = await deploy(
     PRIVATE_KEY,
     PUBLIC_KEY,
     masterRegistryUri,
-    'box1',
+    boxId1,
     false,
-    'mytoken',
-    // 2% fee
-    // 2.000 is 2% of 100.000
-    [PUBLIC_KEY_3, 2000],
+    contractId,
     EXPIRES
   );
+  contractId = `${prefix}${contractId}`
+  console.log('  Contract ID with prefix : ' + contractId)
+
+  await checkFee(masterRegistryUri, contractId, null);
   // If you purchase a token at 100 REV
   // seller gets 98 REV
   // owner of the contract gets 2 REV
+  const updateFee1 = await updateFee(
+    PRIVATE_KEY,
+    PUBLIC_KEY,
+    masterRegistryUri,
+    boxId1,
+    contractId,
+    // 2% fee
+    // 2.000 is 2% of 100.000
+    [boxId3, 2000],
+  );
+  console.log(updateFee1);
+  await checkFee(masterRegistryUri, contractId, [boxId3, 2000]);
 
   balances1.push(await getBalance(PUBLIC_KEY));
   console.log('✓ 03 deployed fungible/FT contract');
@@ -110,37 +166,20 @@ const main = async () => {
       (balances1[balances1.length - 2] - balances1[balances1.length - 1])
   );
 
-  const createdPursesFailed = await createPurses(
-    PRIVATE_KEY,
-    PUBLIC_KEY,
-    masterRegistryUri,
-    'mytoken',
-    'box1',
-    'boxdoesnotexist',
-    ['aaa']
-  );
-  if (
-    createdPursesFailed.results['aaa'] !==
-    'error: box not found boxdoesnotexist'
-  ) {
-    throw new Error(
-      'CREATE_PURSE should have failed because of non-existent box'
-    );
-  }
-
   const t = new Date().getTime();
-  const ids = [];
+  let ids = [];
   for (let i = 0; i < PURSES_TO_CREATE; i += 1) {
     ids.push(getRandomName());
   }
+  ids = ids.concat(['willbedeleted']);
 
   await createPurses(
     PRIVATE_KEY,
     PUBLIC_KEY,
     masterRegistryUri,
-    'mytoken',
-    'box1',
-    'box1',
+    contractId,
+    boxId1,
+    boxId1,
     ids
   );
   balances1.push(await getBalance(PUBLIC_KEY));
@@ -155,16 +194,32 @@ const main = async () => {
       's'
   );
 
-  await checkPursesInBox(masterRegistryUri, 'box1', 'mytoken', [ids[0]]);
-  await checkPursesInContract(masterRegistryUri, 'mytoken', ['0'].concat(ids));
+  await checkPursesInBox(masterRegistryUri, boxId1, contractId, [ids[0]]);
+  await checkPursesInContract(masterRegistryUri, contractId, ['0'].concat(ids));
   console.log(`✓ 04 check the presence of ${ids.length} purses with quantity`);
+
+  let purseDeleted = await deletePurse(
+    PRIVATE_KEY,
+    PUBLIC_KEY,
+    masterRegistryUri,
+    contractId,
+    boxId1,
+    'willbedeleted'
+  );
+  if (purseDeleted.status !== 'completed') {
+    throw new Error('04.1 Failed to delete purse');
+  }
+  ids = ids.filter((id) => id !== 'willbedeleted');
+  await checkPursesInContract(masterRegistryUri, contractId, ['0'].concat(ids));
+  console.log(`✓ 04.1 check the that purse has been deleted`);
 
   await withdraw(
     PRIVATE_KEY,
     PUBLIC_KEY,
     masterRegistryUri,
-    'box1',
-    'box2',
+    boxId1,
+    boxId2,
+    contractId,
     1,
     ids[0] // id of the purse to withdraw from
   );
@@ -172,14 +227,14 @@ const main = async () => {
   console.log(`✓ 05 withdraw`);
   await checkPursesInBox(
     masterRegistryUri,
-    'box1',
-    'mytoken',
+    boxId1,
+    contractId,
     ids.filter((id) => id !== ids[0])
   );
-  await checkPursesInBox(masterRegistryUri, 'box2', 'mytoken', [ids[0]]);
-  await checkPursesInContract(masterRegistryUri, 'mytoken', ids);
+  await checkPursesInBox(masterRegistryUri, boxId2, contractId, [ids[0]]);
+  await checkPursesInContract(masterRegistryUri, contractId, ids);
 
-  console.log(`✓ 05 check the presence of 1 nft purses in box2`);
+  console.log(`✓ 05 check the presence of 1 nft purses in ${boxId2}`);
   balances1.push(await getBalance(PUBLIC_KEY));
   console.log(
     '  05 dust cost: ' +
@@ -190,13 +245,13 @@ const main = async () => {
     PRIVATE_KEY,
     PUBLIC_KEY,
     masterRegistryUri,
-    'box1',
-    'mytoken',
+    boxId1,
+    contractId,
     '0',
     'aaa'
   );
   balances1.push(await getBalance(PUBLIC_KEY));
-  await checkPurseDataInContract(masterRegistryUri, 'mytoken', '0', 'aaa');
+  await checkPurseDataInContract(masterRegistryUri, contractId, '0', 'aaa');
 
   console.log(`✓ 07 update data associated to purse`);
   console.log(
@@ -208,14 +263,14 @@ const main = async () => {
     PRIVATE_KEY,
     PUBLIC_KEY,
     masterRegistryUri,
-    'box1',
-    'mytoken',
+    boxId1,
+    contractId,
     '0',
-    1000
+    [`"${prefix}rev"` , 1000]
   );
 
   balances1.push(await getBalance(PUBLIC_KEY));
-  await checkPursePriceInContract(masterRegistryUri, 'mytoken', '0', 1000);
+  await checkPursePriceInContract(masterRegistryUri, contractId, '0', [`${prefix}rev` , 1000]);
   console.log(`✓ 08 set a price to purse "0"`);
   console.log(
     '  08 dust cost: ' +
@@ -226,271 +281,496 @@ const main = async () => {
     PRIVATE_KEY_2,
     PUBLIC_KEY_2,
     masterRegistryUri,
-    'box2',
-    'mytoken',
+    boxId2,
+    contractId,
     ids[0],
-    1000
+    [`"${prefix}rev"` , 1000]
   );
 
   balances2.push(await getBalance(PUBLIC_KEY_2));
-  await checkPursePriceInContract(masterRegistryUri, 'mytoken', ids[0], 1000);
+  await checkPursePriceInContract(masterRegistryUri, contractId, ids[0], [`${prefix}rev` , 1000]);
   console.log(`✓ 09 set a price to a purse`);
   console.log(
     '  09 dust cost: ' +
       (balances2[balances2.length - 2] - balances2[balances2.length - 1])
   );
 
-  const balance2BeforePurchase = balances2[balances2.length - 1];
-  const purchaseFailed1 = await purchase(PRIVATE_KEY, PUBLIC_KEY, {
+  const swapSuccess1 = await swap(PRIVATE_KEY, {
     masterRegistryUri: masterRegistryUri,
     purseId: ids[0],
-    contractId: `mytoken`,
-    boxId: `box1`,
-    quantity: 'Nil', // invalid payload
-    data: 'bbb',
-    newId: '',
-    merge: true,
-    price: 1000,
-    publicKey: PUBLIC_KEY,
-  });
-  balances1.push(await getBalance(PUBLIC_KEY));
-
-  if (
-    purchaseFailed1.status !== 'failed' ||
-    purchaseFailed1.message !==
-      'error: invalid payload, cancelled purchase and payment'
-  ) {
-    console.log(purchaseFailed1);
-    throw new Error(
-      'purchase should have failed with proper error message (1)'
-    );
-  }
-  console.log(`✓ 10 failed purchase because of invalid payload`);
-
-  const purchaseFailed2 = await purchase(PRIVATE_KEY, PUBLIC_KEY, {
-    masterRegistryUri: masterRegistryUri,
-    purseId: ids[0],
-    contractId: `mytoken`,
-    boxId: `box1`,
-    quantity: 2, // not available
-    data: 'bbb',
-    newId: '',
-    merge: true,
-    price: 1000,
-    publicKey: PUBLIC_KEY,
-  });
-  balances1.push(await getBalance(PUBLIC_KEY));
-  if (
-    purchaseFailed2.status !== 'failed' ||
-    purchaseFailed2.message !==
-      `error: purchase failed but was able to refund ${
-        1000 * 2
-      } error: quantity not available or purse not for sale`
-  ) {
-    console.log(purchaseFailed2);
-    throw new Error(
-      'purchase should have failed with proper error message (2)'
-    );
-  }
-  console.log(`✓ 11 failed purchase because of invalid quantity`);
-
-  const purchaseSuccess = await purchase(PRIVATE_KEY, PUBLIC_KEY, {
-    masterRegistryUri: masterRegistryUri,
-    purseId: ids[0],
-    contractId: `mytoken`,
-    boxId: `box1`,
+    contractId: contractId,
+    boxId: boxId1,
     quantity: 1,
     data: 'bbb',
-    newId: null,
+    newId: 'none',
     merge: true,
-    price: 1000,
-    publicKey: PUBLIC_KEY,
   });
   balances1.push(await getBalance(PUBLIC_KEY));
-  balances2.push(await getBalance(PUBLIC_KEY_2));
   balances3.push(await getBalance(PUBLIC_KEY_3));
-  if (purchaseSuccess.status !== 'completed') {
-    throw new Error('purchase should have been successful');
+  if (swapSuccess1.status !== 'completed') {
+    console.log(swapSuccess1)
+    throw new Error('swap should have been successful');
   }
+
+  // mytoken tests
   await checkPursesInBox(
     masterRegistryUri,
-    'box1',
-    'mytoken',
-    ['0'].concat(ids)
+    boxId1,
+    contractId,
+    ["0"].concat(ids)
   );
-  await checkPursesInBox(masterRegistryUri, 'box2', 'mytoken', []);
-  await checkPursesInContract(masterRegistryUri, 'mytoken', ids);
-  await checkPursesSameTimestampInContract(masterRegistryUri, 'mytoken', [
-    ids[0],
-    ids[1],
-  ]);
+  await checkPursesInBox(
+    masterRegistryUri,
+    boxId2,
+    contractId,
+    [] 
+  );
 
-  if (
-    balances2[balances2.length - 2] + 980 !==
-    balances2[balances2.length - 1]
-  ) {
-    throw new Error('owner of box 1 did not receive payment from purchase');
-  }
+  // rev checks
+  await checkPursesInBox(
+    masterRegistryUri,
+    boxId1,
+    `${prefix}rev`,
+    [`1`]
+  );
+  await checkPursesInBox(
+    masterRegistryUri,
+    boxId2,
+    `${prefix}rev`,
+    [`2`]
+  );
+  await checkPursesInBox(
+    masterRegistryUri,
+    boxId3,
+    `${prefix}rev`,
+    [`3`]
+  );
+  await checkPursesInContractFT(
+    masterRegistryUri,
+    `${prefix}rev`,
+    3,
+    `2`,
+    980
+  );
+  await checkPursesInContractFT(
+    masterRegistryUri,
+    `${prefix}rev`,
+    3,
+    `3`,
+    20
+  );
+  await checkPursesInContractFT(
+    masterRegistryUri,
+    `${prefix}rev`,
+    3,
+    `1`,
+    WRAPPED_REV_QUANTITY - 1000
+  );
+  await checkPurseDataInContract(masterRegistryUri, contractId, ids[0], 'bbb');
 
-  if (balances3[0] + 20 !== balances3[1]) {
-    throw new Error('owner of public key 3 did not receive fee from purchase');
-  }
-  console.log(`✓ 12 purchase`);
-  console.log(`✓ 12 balance of purse's owner checked and has +980 dust`);
-  console.log(`✓ 12 2% fee was earned by owner of public key 3`);
+  console.log(`✓ 12 swap nft<->ft successful`);
+  console.log(`✓ 12 balance of nft owner checked and has +980 [prefix]rev`);
+  console.log(`✓ 12 2% fee of [prefix]rev was earned by owner of box 3`);
+
+  await checkLogsInContract(
+    masterRegistryUri,
+    contractId,
+    `p,${boxId2},${boxId1},1,ft_${prefix}rev_1000,${ids[0]},${ids[0]};`
+  );
+  console.log(`✓ 12.1 logs valid`);
 
   console.log(
     '  12 dust cost: ' +
       (balances1[balances1.length - 2] - balances1[balances1.length - 1])
   );
 
-  const purchaseFromZeroFailed1 = await purchase(PRIVATE_KEY_2, PUBLIC_KEY_2, {
+  const swapMintFailure1 = await swap(PRIVATE_KEY_2, {
     masterRegistryUri: masterRegistryUri,
-    purseId: '0',
-    contractId: `mytoken`,
-    boxId: `box2`,
+    purseId: "0",
+    contractId: contractId,
+    boxId: boxId2,
     quantity: 1,
-    data: 'bbb',
+    data: 'ccc',
     newId: 'mytokemytokennmytokenmytokemytokennmytokenmytokemytokennmytoken', // above 25 length limit, makePurse should fail
     merge: true,
-    price: 1000,
-    publicKey: PUBLIC_KEY_2,
   });
-  if (
-    purchaseFromZeroFailed1.status !== 'failed' ||
-    purchaseFromZeroFailed1.message !==
-      `error: purchase failed but was able to refund ${1000} error: rollback successful, makePurse error, transaction was rolled backed, emitter purse was reimbursed error: invalid purse, one of the following errors: id length must be between length 1 and 24`
-  ) {
-    console.log(purchaseFromZeroFailed1);
-    throw new Error('purchase should have fail with proper error message (1)');
-  }
   balances2.push(await getBalance(PUBLIC_KEY_2));
-
-  await checkPursesInBox(masterRegistryUri, 'box2', 'mytoken', []);
+  if (
+    swapMintFailure1.status !== 'failed' ||
+    swapMintFailure1.message !== "error: box or contract not found or invalid payload"
+  ) {
+    console.log(swapMintFailure1);
+    throw new Error('swap mint should have fail with proper error message (1)');
+  }
   await checkPursesInBox(
     masterRegistryUri,
-    'box1',
-    'mytoken',
-    ['0'].concat(ids)
+    boxId1,
+    contractId,
+    ["0"].concat(ids)
   );
-
-  console.log(`✓ 13 failed purchase, makePurse error`);
-
-  const balance1BeforePurchaseFromZero = balances1[balances1.length - 1];
-  const purchaseFromZeroSuccess = await purchase(PRIVATE_KEY_2, PUBLIC_KEY_2, {
+  await checkPursesInBox(
+    masterRegistryUri,
+    boxId2,
+    contractId,
+    [] 
+  );
+  console.log(`✓ 13 swap mint has failed because of invalid payload`);
+  
+  const swapMintFailure2 = await swap(PRIVATE_KEY_2, {
     masterRegistryUri: masterRegistryUri,
-    purseId: '0',
-    contractId: `mytoken`,
-    boxId: `box2`,
+    purseId: "0",
+    contractId: contractId,
+    boxId: boxId2,
     quantity: 1,
-    data: 'bbb',
+    data: 'ccc',
     newId: 'mynewnft',
     merge: true,
-    price: 1000,
-    publicKey: PUBLIC_KEY_2,
   });
-  balances3.push(await getBalance(PUBLIC_KEY_3));
   balances2.push(await getBalance(PUBLIC_KEY_2));
-
-  await checkPurseDataInContract(
-    masterRegistryUri,
-    'mytoken',
-    'mynewnft',
-    'bbb'
-  );
-  await checkPursesInBox(masterRegistryUri, 'box2', 'mytoken', ['mynewnft']);
+  if (
+    swapMintFailure2.status !== 'failed' ||
+    swapMintFailure2.message !== `error: box cannot fulfil order`
+  ) {
+    console.log(swapMintFailure2);
+    throw new Error('swap mint should have fail with proper error message (2)');
+  }
   await checkPursesInBox(
     masterRegistryUri,
-    'box1',
-    'mytoken',
-    ['0'].concat(ids)
-  );
-  await checkPursesInContract(
-    masterRegistryUri,
-    'mytoken',
-    ['0', 'mynewnft'].concat(ids)
-  );
-
-  const balance1AfterPurchaseFromZero = await getBalance(PUBLIC_KEY);
-  if (balance1BeforePurchaseFromZero + 980 !== balance1AfterPurchaseFromZero) {
-    throw new Error('owner of box 1 did not receive payment from purchase');
-  }
-
-  if (balances3[1] + 20 !== balances3[2]) {
-    throw new Error('owner of public key 3 did not receive fee from purchase');
-  }
-
-  console.log(`✓ 14 purchase from special purse "0" and create NFT`);
-  console.log(`✓ 14 balance of purse's owner checked and has +980 dust`);
-  console.log(`✓ 14 2% fee was earned by owner of public key 3`);
-
-  console.log(
-    '  14 dust cost: ' +
-      (balances2[balances2.length - 2] - balances2[balances2.length - 1])
-  );
-
-  const deletedPurse = await deleteExpiredPurse(
-    PRIVATE_KEY_2,
-    PUBLIC_KEY_2,
-    masterRegistryUri,
-    'mytoken',
-    ids[0]
-  );
-  balances2.push(await getBalance(PUBLIC_KEY_2));
-  console.log(
-    '  15 dust cost: ' +
-      (balances2[balances2.length - 2] - balances2[balances2.length - 1])
+    boxId1,
+    contractId,
+    ["0"].concat(ids)
   );
   await checkPursesInBox(
     masterRegistryUri,
-    'box1',
-    'mytoken',
-    ['0'].concat(ids.slice(1))
+    boxId2,
+    contractId,
+    [] 
   );
-  console.log(`✓ 15 deleted expired purse`);
+  console.log(`✓ 14 swap mint has failed because of unsuffiscient wrapped [prefix]rev`);
 
   await withdraw(
     PRIVATE_KEY,
     PUBLIC_KEY,
     masterRegistryUri,
-    'box1',
-    'box2',
+    boxId1,
+    boxId2,
+    `${prefix}rev`,
+    20,
+    "1" // id of the purse to withdraw from
+  );
+
+  const swapMintSuccess = await swap(PRIVATE_KEY_2, {
+    masterRegistryUri: masterRegistryUri,
+    purseId: "0",
+    contractId: contractId,
+    boxId: boxId2,
+    quantity: 1,
+    data: 'ccc',
+    newId: 'mynewnft',
+    merge: true,
+  });
+  balances2.push(await getBalance(PUBLIC_KEY_2));
+
+  // mytoken checks
+  await checkPursesInBox(
+    masterRegistryUri,
+    boxId1,
+    contractId,
+    ["0"].concat(ids)
+  );
+  await checkPursesInBox(
+    masterRegistryUri,
+    boxId2,
+    contractId,
+    ['mynewnft'] 
+  );
+  // rev checks
+  await checkPursesInContractFT(
+    masterRegistryUri,
+    `${prefix}rev`,
+    2,
+    `1`,
+    WRAPPED_REV_QUANTITY - 40
+  );
+  await checkPursesInContractFT(
+    masterRegistryUri,
+    `${prefix}rev`,
+    2,
+    `3`,
+    40
+  );
+  console.log(`✓ 15 swap mint (purse "0") successful`);
+  console.log(`✓ 15 2% fee of [prefix]rev was again earned by owner of box 3`);
+
+  const logsStep15 = `p,${boxId1},${boxId2},1,ft_${prefix}rev_1000,0,mynewnft;p,${boxId2},${boxId1},1,ft_${prefix}rev_1000,${ids[0]},${ids[0]};`;
+  await checkLogsInContract(
+    masterRegistryUri,
+    contractId,
+    `${logsStep15}`
+  );
+  console.log(`✓ 15.1 logs ok`);
+
+  const priceUpdateFailed1 = await updatePursePrice(
+    PRIVATE_KEY,
+    PUBLIC_KEY,
+    masterRegistryUri,
+    boxId1,
+    contractId,
+    ids[1],
+    [`"${contractId}"` , `"0"`]
+  );
+  balances1.push(await getBalance(PUBLIC_KEY));
+  if (
+    priceUpdateFailed1.status !== 'failed' ||
+    priceUpdateFailed1.message !== `error: you cannot ask for purse zero in exchange of swap`
+  ) {
+    console.log(priceUpdateFailed1);
+    throw new Error('price update should have failed with proper error message (1)');
+  }
+  console.log(`✓ 16 update purse price with (String, "0") failed`);
+
+  const priceUpdateFailed2 = await updatePursePrice(
+    PRIVATE_KEY,
+    PUBLIC_KEY,
+    masterRegistryUri,
+    boxId1,
+    contractId,
+    "0",
+    [`"${contractId}"` , `"mynewnft"`]
+  );
+  balances1.push(await getBalance(PUBLIC_KEY));
+  if (
+    priceUpdateFailed2.status !== 'failed' ||
+    priceUpdateFailed2.message !== `error: purse zero cannot be swapped with NFT`
+  ) {
+    console.log(priceUpdateFailed2);
+    throw new Error('price update should have failed with proper error message (2)');
+  }
+  console.log(`✓ 17 update purse "0" price in exchange for nft failed`);
+
+  await updatePursePrice(
+    PRIVATE_KEY,
+    PUBLIC_KEY,
+    masterRegistryUri,
+    boxId1,
+    contractId,
+    ids[1],
+    [`"${contractId}"` , `"mynewnft"`]
+  );
+
+  balances1.push(await getBalance(PUBLIC_KEY));
+  await checkPursePriceInContract(masterRegistryUri, contractId, ids[1], [contractId , "mynewnft"]);
+  console.log(`✓ 18 purse ids[1] price updated, sell order for nft<->nft "mynewnft"`);
+
+  const swapSuccess2 = await swap(PRIVATE_KEY_2, {
+    masterRegistryUri: masterRegistryUri,
+    purseId: ids[1],
+    contractId: contractId,
+    boxId: boxId2,
+    quantity: 1,
+    data: '',
+    newId: 'none',
+    merge: true,
+  });
+  balances2.push(await getBalance(PUBLIC_KEY_2));
+  if (swapSuccess2.status !== 'completed') {
+    console.log(swapSuccess2)
+    throw new Error('swap should have been successful');
+  }
+  await checkPursesInBox(
+    masterRegistryUri,
+    boxId1,
+    contractId,
+    ["0", "mynewnft"].concat(ids).filter(i => i !== ids[1])
+  );
+  await checkPursesInBox(
+    masterRegistryUri,
+    boxId2,
+    contractId,
+    [ids[1]] 
+  );
+  console.log(`✓ 19 swap nft<->nft successful`);
+
+  await checkLogsInContract(
+    masterRegistryUri,
+    contractId,
+    `p,${boxId1},${boxId2},1,nft_${contractId}_mynewnft,${ids[1]},${ids[1]};${logsStep15}`
+  );
+  console.log(`✓ 19.1 logs valid`);
+
+  await updatePursePrice(
+    PRIVATE_KEY_3,
+    PUBLIC_KEY_3,
+    masterRegistryUri,
+    boxId3,
+    `${prefix}rev`,
+    "3",
+    [`"${contractId}"` , `"mynewnft"`]
+  );
+  balances3.push(await getBalance(PUBLIC_KEY_3));
+  await checkPursePriceInContract(masterRegistryUri, `${prefix}rev`, "3", [contractId , "mynewnft"]);
+  console.log(`✓ 20 purse that has 20 [prefix]rev price updated, sell order for nft "mynewnft"`);
+
+  const swapSuccess3 = await swap(PRIVATE_KEY, {
+    masterRegistryUri: masterRegistryUri,
+    purseId: "3",
+    contractId: `${prefix}rev`,
+    boxId: boxId1,
+    quantity: 1,
+    data: 'ddd',
+    newId: 'none',
+    merge: true,
+  });
+  balances1.push(await getBalance(PUBLIC_KEY));
+  if (swapSuccess3.status !== 'completed') {
+    console.log(swapSuccess3)
+    throw new Error('swap should have been successful');
+  }
+  await checkPursesInBox(
+    masterRegistryUri,
+    boxId1,
+    contractId,
+    ["0"].concat(ids).filter(i => i !== ids[1])
+  );
+  await checkPursesInBox(
+    masterRegistryUri,
+    boxId3,
+    contractId,
+    ["mynewnft"] 
+  );
+  // box 1 has got all the [prefix]rev back
+  await checkPursesInContractFT(
+    masterRegistryUri,
+    `${prefix}rev`,
     1,
-    ids[1]
+    `1`,
+    WRAPPED_REV_QUANTITY
+  );
+  console.log(`✓ 21 swap ft<->nft successful`);
+
+
+  await withdraw(
+    PRIVATE_KEY,
+    PUBLIC_KEY,
+    masterRegistryUri,
+    boxId1,
+    "_burn",
+    contractId,
+    1,
+    ids[2]
+  );
+  await checkPursesInContract(
+    masterRegistryUri,
+    contractId,
+    ['0', 'mynewnft'].concat(ids)
+  );
+  const allData3 = await getAllData(masterRegistryUri, contractId);
+  if (!allData3.purses[ids[2]] || allData3.purses[ids[2]].boxId !== "_burn") {
+    throw new Error('Token should have been burned')
+  }
+  const boxData = await getAllBoxData(masterRegistryUri, boxId1);
+  if (boxData.purses[contractId] && boxData.purses[ids[2]]) {
+    throw new Error('Token should have been burned and not in box')
+  }
+  console.log(`✓ 22 box1 burned NFT`);
+
+  // box 3 will delete one of 
+  // box 1's NFT
+  await new Promise((resolve) => {
+    const s = setInterval(async () => {
+      const deletedPurse = await deleteExpiredPurse(
+        PRIVATE_KEY_3,
+        PUBLIC_KEY_3,
+        masterRegistryUri,
+        contractId,
+        boxId1,
+        ids[0]
+      );
+      if (deletedPurse.status === 'completed') {
+        resolve();
+        clearInterval(s);
+      } else {
+        console.log(
+          '  tried to delete expired purse, it may be too soon, will retry'
+        );
+      }
+    }, 40000);
+  });
+  balances3.push(await getBalance(PUBLIC_KEY_3));
+
+  await checkPursesInBox(
+    masterRegistryUri,
+    boxId1,
+    contractId,
+    ['0'].concat(ids.slice(4))
+  );
+  console.log(`✓ 23 deleted expired purse`);
+
+  // box 2 will try to renew purse ids[5]
+  await withdraw(
+    PRIVATE_KEY,
+    PUBLIC_KEY,
+    masterRegistryUri,
+    boxId1,
+    boxId2,
+    contractId,
+    1,
+    ids[5]
+  );
+  balances1.push(await getBalance(PUBLIC_KEY));
+  console.log(`✓ 24 withdraw box1->box2 nft ids[5]`);
+
+  // box2 must have enough [prefix]rev to renew (1000)
+  await withdraw(
+    PRIVATE_KEY,
+    PUBLIC_KEY,
+    masterRegistryUri,
+    boxId1,
+    boxId2,
+    `${prefix}rev`,
+    1000,
+    "1"
   );
   balances1.push(await getBalance(PUBLIC_KEY));
 
-  const allData = await getAllData(masterRegistryUri, 'mytoken');
-  const timestampBeforeRenew = allData.purses[ids[1]].timestamp;
+  console.log(`✓ 24 withdraw box1->box2 1000 [prefix]rev so that box2 can renew`);
+
+  const allDataRev1 = await getAllData(masterRegistryUri, `${prefix}rev`);
+  let balanceBox1Before = 0;
+  try {
+    balanceBox1Before = Object.values(allDataRev1.purses).find(p => p.boxId === boxId1).quantity
+  } catch (err) {
+  }
+
+  const allData = await getAllData(masterRegistryUri, contractId);
+  const timestampBeforeRenew = allData.purses[ids[5]].timestamp;
 
   // try to renew until we enter grace period
+  let i = 0;
   await new Promise((resolve) => {
-    let i = 0;
     const s = setInterval(() => {
-      i += 1;
+     
       renew(PRIVATE_KEY_2, PUBLIC_KEY_2, {
         masterRegistryUri: masterRegistryUri,
-        purseId: ids[1],
-        contractId: `mytoken`,
-        publicKey: PUBLIC_KEY_2,
-        boxId: `box2`,
-        price: 1000,
+        purseId: ids[5],
+        contractId: contractId,
+        boxId: boxId2,
       }).then((renewSuccess) => {
+        console.log(renewSuccess);
         if (renewSuccess.status === 'completed') {
           resolve();
           clearInterval(s);
         } else {
-          if (
-            renewSuccess.message ===
-            'error: renew failed but was able to refund 1000 error: to soon to renew'
-          ) {
-            console.log(renewSuccess.message);
+          i += 1;
+          if (renewSuccess.message === 'error: to soon to renew') {
+            console.log('  ' + renewSuccess.message);
             console.log(
               '  tried to renew',
               i,
               'time(s), it may be too soon, will retry'
             );
           } else {
+            console.log(renewSuccess)
             throw new Error('should have received to soon error');
           }
         }
@@ -499,28 +779,31 @@ const main = async () => {
   });
 
   balances2.push(await getBalance(PUBLIC_KEY_2));
-  balances1.push(await getBalance(PUBLIC_KEY));
 
-  const allData2 = await getAllData(masterRegistryUri, 'mytoken');
-  const timestampAfterRenew = allData2.purses[ids[1]].timestamp;
+  const allData2 = await getAllData(masterRegistryUri, contractId);
+  const timestampAfterRenew = allData2.purses[ids[5]].timestamp;
 
-  if (
-    balances1[balances1.length - 2] + 1000 !==
-    balances1[balances1.length - 1]
-  ) {
-    throw new Error('owner of public key 1 did not receive fee from renew');
+  const allDataRev2 = await getAllData(masterRegistryUri, `${prefix}rev`);
+  const balanceBox1After = Object.values(allDataRev2.purses).find(p => p.boxId === boxId1).quantity
+  console.log('balanceBox1After', balanceBox1After)
+
+  if (balanceBox1After !== balanceBox1Before + 1000) {
+    console.log('balanceBox1Before + 1000', balanceBox1Before + 1000)
+    console.log('balanceBox1After', balanceBox1After)
+    throw new Error('owner of box 1 did not receive 1000 [prefix]rev from renew');
   }
 
   if (timestampAfterRenew !== timestampBeforeRenew + EXPIRES) {
+    console.log((timestampBeforeRenew + EXPIRES) - timestampAfterRenew);
     throw new Error(
-      'timestamp do not match + ' +
-        EXPIRES +
-        timestampBeforeRenew +
+      'timestamps do not match + ' +
+        (EXPIRES +
+        timestampBeforeRenew)+
         ' ' +
         timestampAfterRenew
     );
   }
-  console.log(`✓ 17 renewed purse, owner of purse 0 has +1000 dust`);
+  console.log(`✓ 25 renewed purse, owner of purse 0 (box1) has +1000 dust`);
 };
 
 main();

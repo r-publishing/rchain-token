@@ -1,0 +1,27 @@
+new basket,
+  returnCh,
+  boxCh,
+  stdout(`rho:io:stdout`),
+  deployerId(`rho:rchain:deployerId`),
+  registryLookup(`rho:registry:lookup`)
+in {
+
+  for (boxCh <<- @(*deployerId, "rchain-token-box", "MASTER_REGISTRY_URI", "BOX_ID")) {
+    stdout!("boxCh") |
+    boxCh!(("SWAP", { "contractId": "CONTRACT_ID", "purseId": "PURSE_ID", "merge": MERGE, "quantity": QUANTITY, "data": "SWAP_DATA", "newId": "NEW_ID" }, *returnCh)) |
+    for (@r <- returnCh) {
+      match r {
+        String => {
+          basket!({ "status": "failed", "message": r }) |
+          stdout!(("failed", r))
+        }
+        (true, Nil) => {
+          // OP_SWAP_BEGIN
+          basket!({ "status": "completed" }) |
+          stdout!("completed, swap successful")
+          // OP_SWAP_END
+        }
+      }
+    }
+  }
+}

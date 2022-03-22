@@ -1,123 +1,84 @@
-const rchainToolkit = require('rchain-toolkit');
 const fs = require('fs');
-
-const { createPursesTerm } = require('../src');
+const { createPurse } = require('./api');
 
 const {
   getBoxId,
   getQuantity,
   getContractId,
   getMasterRegistryUri,
-  getType,
   getNewId,
   getPrice,
-  log,
-  validAfterBlockNumber,
   getPursesFile,
+  log,
 } = require('./utils');
 
-module.exports.createPurse = async () => {
-  const masterRegistryUri = getMasterRegistryUri();
-  const contractId = getContractId();
-  log(
-    'Make sure the private key provided is the one of the contract'
-  );
-  log('Make sure the contract is not locked');
+const getPursesAndData = () => {
   const boxId = getBoxId();
-
-  const type = getType();
-  const newId = getNewId();
-
-  const publicKey = rchainToolkit.utils.publicKeyFromPrivateKey(
-    process.env.PRIVATE_KEY
-  );
-
-  const pursesFile = getPursesFile()
+  const pursesFileContent = getPursesFile()
     ? fs.readFileSync(getPursesFile(), 'utf8')
     : '';
 
-  let quantity;
-  let price;
-  if (pursesFile === '') {
-    quantity = getQuantity();
-    price = getPrice();
-    if (!type) {
-      throw new Error('Please provide a type with --type option');
-    }
-    if (!quantity) {
-      throw new Error('Please provide a quantity with --quantity option');
-    }
+  if (pursesFileContent !== '') {
+    const pursesJSON = JSON.parse(pursesFileContent);
+
+    const pursesData = Object.fromEntries(
+      Object.entries(pursesJSON).map(([id, purse]) => [id, purse.data])
+    );
+
+    const purses = Object.fromEntries(
+      Object.entries(pursesJSON).map(([id, purse]) => {
+        delete purse.data;
+        purse.boxId = boxId;
+        purse.price = null;
+        return [id, purse];
+      })
+    );
+
+    return [purses, pursesData];
   }
-  let payload = {
-    masterRegistryUri: masterRegistryUri,
-    contractId: contractId,
-    purses: {
-      [`newbag1`]: {
-        id: newId || '', // will be ignored if fungible = true
-        type: type,
-        price: price,
-        boxId: boxId,
-        quantity: quantity,
+
+  const quantity = getQuantity();
+
+  if (!quantity) {
+    throw new Error('Please provide a quantity with --quantity option');
+  }
+
+  return [
+    {
+      [`purse1`]: {
+        id: getNewId() || '', // will be ignored if fungible = true
+        price: null, 
+        boxId,
+        quantity
       },
     },
-    data: {
-      [`newbag1`]: null,
+    {
+      [`purse1`]: null,
     },
-  };
+  ];
+};
 
-  const defaultPursesData = {};
-  const defaultPurses = {};
+const execCreatePurse = async () => {
+  log('Make sure the private key provided is the one of the contract');
+  log('Make sure the contract is not locked');
 
-  if (pursesFile) {
-    const purses = JSON.parse(pursesFile);
-    Object.keys(purses).forEach((purseId) => {
-      defaultPursesData[purseId] = purses[purseId].data;
-      delete purses[purseId].data;
-      defaultPurses[purseId] = purses[purseId];
-      defaultPurses[purseId].boxId = boxId;
-      defaultPurses[purseId].price = null;
-    });
-    log(Object.keys(defaultPurses).length + ' purse found in json file');
-    log(
-      Object.keys(defaultPursesData).length + ' purse data found in json file'
-    );
-    payload = {
-      masterRegistryUri: masterRegistryUri,
-      contractId: contractId,
-      purses: defaultPurses,
-      data: defaultPursesData,
-    };
-  }
+  const masterRegistryUri = getMasterRegistryUri();
+  const contractId = getContractId();
 
-  const term = createPursesTerm(payload);
+  const [purses, pursesData] = getPursesAndData();
 
-  const timestamp = new Date().getTime();
-  const vab = await validAfterBlockNumber(process.env.READ_ONLY_HOST);
-  const deployOptions = await rchainToolkit.utils.getDeployOptions(
-    'secp256k1',
-    timestamp,
-    term,
-    process.env.PRIVATE_KEY,
-    publicKey,
-    1,
-    100000000,
-    vab
-  );
+  const rPurseId = await createPurse({
+    masterRegistryUri,
+    validatorHost: process.env.VALIDATOR_HOST,
+    privateKey: process.env.PRIVATE_KEY,
+    contractId,
+    purses,
+    pursesData,
+  });
 
-  try {
-    const deployResponse = await rchainToolkit.http.deploy(
-      process.env.VALIDATOR_HOST,
-      deployOptions
-    );
-    if (!deployResponse.startsWith('"Success!')) {
-      log('Unable to deploy');
-      console.log(deployResponse);
-      process.exit();
-    }
-  } catch (err) {
-    log('Unable to deploy');
-    console.log(err);
-    process.exit();
-  }
-  log('✓ deployed');
+  log(`Purse ${rPurseId} deployed`);
+};
+
+module.exports = {
+  execCreatePurse,
 };

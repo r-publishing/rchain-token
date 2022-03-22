@@ -11,7 +11,7 @@ module.exports.updatePursePriceTerm = (
 in {
 
   for (boxCh <<- @(*deployerId, "rchain-token-box", "${payload.masterRegistryUri}", "${payload.boxId}")) {
-    boxCh!(("UPDATE_PURSE_PRICE", { "contractId": "${payload.contractId}", "price": ${payload.price || "Nil"}, "purseId": "${payload.purseId}" }, *returnCh)) |
+    boxCh!(("UPDATE_PURSE_PRICE", { "contractId": "${payload.contractId}", "price": ${payload.price ? "(" + payload.price + ")": "Nil"}, "purseId": "${payload.purseId}" }, *returnCh)) |
     for (@r <- returnCh) {
       match r {
         String => {
@@ -19,8 +19,10 @@ in {
           stdout!(("failed", r))
         }
         _ => {
+          // OP_UPDATE_PURSE_PRICE_COMPLETED_BEGIN
           basket!({ "status": "completed" }) |
           stdout!("completed, price updated")
+          // OP_UPDATE_PURSE_PRICE_COMPLETED_END
         }
       }
     }

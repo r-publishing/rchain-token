@@ -20,8 +20,8 @@ const replaceEverything = (a) => {
       .replace(/SPLIT_PURSE_QUANTITY/g, '${payload.quantityInNewPurse}')
       .replace(/WITHDRAW_PURSE_QUANTITY/g, '${payload.quantityToWithdraw}')
       .replace(
-        /FEE/g,
-        '${payload.fee ? "(" + payload.fee.join(\',\') + ")" : "Nil"}'
+        /\: FEE/g,
+        ': ${payload.fee ? `("${payload.fee[0]}", ${payload.fee[1]})` : "Nil"}'
       )
       .replace('SIGNATURE', '${signature}')
       .replace(
@@ -31,6 +31,7 @@ const replaceEverything = (a) => {
       .replace('NEW_NONCE', '${payload.newNonce}')
       .replace('UPDATE_PURSE_DATAA', `\${payload.data}`)
       .replace('PURCHASE_PURSE_DATA', `\${payload.data}`)
+      .replace('SWAP_DATA', `\${payload.data}`)
       .replace(
         'ACTION_AFTER_PURCHASE',
         `\${payload.actionAfterPurchase || "PUBLIC_RECEIVE_PURSE"}`
@@ -46,9 +47,10 @@ const replaceEverything = (a) => {
       .replace('BAG_NONCE', '${payload.bagNonce}')
       .replace('BAG_NONCE_2', '${payload.bagNonce2}')
       // avoid changing "CHANGING_PRICE" string
-      .replace('PRICEE', '${payload.price || "Nil"}')
+      .replace('PRICEE', '${payload.price ? "(" + payload.price + ")": "Nil"}')
       .replace('QUANTITY', '${payload.quantity}')
       .replace('PUBLIC_KEY', '${payload.publicKey}')
+      .replace('REV_ADDRESS', '${payload.revAddress}')
       .replace('BAG_ID', '${payload.bagId}')
       .replace('BAGS_IDS', '${payload.bagsIds}')
       .replace('TOKEN_ID', '${payload.tokenId}')
@@ -60,16 +62,31 @@ const replaceEverything = (a) => {
   );
 };
 
-const purchaseFile = fs
-  .readFileSync('./rholang/op_purchase.rho')
+const creditFile = fs
+  .readFileSync('./rholang/op_credit.rho')
   .toString('utf8');
 fs.writeFileSync(
-  './src/purchaseTerm.js',
+  './src/creditTerm.js',
   `/* GENERATED CODE, only edit rholang/*.rho files*/
-module.exports.purchaseTerm = (
+module.exports.creditTerm = (
   payload
 ) => {
-  return \`${replaceEverything(purchaseFile)}\`;
+  return \`${replaceEverything(creditFile)}\`;
+};
+`
+);
+
+
+const swapFile = fs
+  .readFileSync('./rholang/op_swap.rho')
+  .toString('utf8');
+fs.writeFileSync(
+  './src/swapTerm.js',
+  `/* GENERATED CODE, only edit rholang/*.rho files*/
+module.exports.swapTerm = (
+  payload
+) => {
+  return \`${replaceEverything(swapFile)}\`;
 };
 `
 );
@@ -126,6 +143,32 @@ module.exports.lockTerm = (
 `
 );
 
+const updateFeeFile = fs.readFileSync('./rholang/op_update_fee.rho').toString('utf8');
+fs.writeFileSync(
+  './src/updateFeeTerm.js',
+  `/* GENERATED CODE, only edit rholang/*.rho files*/
+module.exports.updateFeeTerm = (
+  payload
+) => {
+  return \`${replaceEverything(updateFeeFile)}\`;
+};
+`
+);
+
+const deletePurseFile = fs
+  .readFileSync('./rholang/op_delete_purse.rho')
+  .toString('utf8');
+fs.writeFileSync(
+  './src/deletePurseTerm.js',
+  `/* GENERATED CODE, only edit rholang/*.rho files*/
+module.exports.deletePurseTerm = (
+  payload
+) => {
+  return \`${replaceEverything(deletePurseFile)}\`;
+};
+`
+);
+
 const updatePursePriceFile = fs
   .readFileSync('./rholang/op_update_purse_price.rho')
   .toString('utf8');
@@ -177,6 +220,21 @@ module.exports.readBoxTerm = (
   payload
 ) => {
   return \`${replaceEverything(readBoxFile)}\`;
+};
+`
+);
+
+const readLogsFile = fs
+  .readFileSync('./rholang/read_logs.rho')
+  .toString('utf8');
+
+fs.writeFileSync(
+  './src/readLogsTerm.js',
+  `/* GENERATED CODE, only edit rholang/*.rho files*/
+module.exports.readLogsTerm = (
+  payload
+) => {
+  return \`${replaceEverything(readLogsFile)}\`;
 };
 `
 );
@@ -244,8 +302,8 @@ module.exports.deployTerm = (payload) => {
       .replace(/\\\//g, '\\\\/')
       .replace(/\$\{/g, '\\${')
       .replace(
-        /FEE/g,
-        '${payload.fee ? `("${payload.fee[0]}", ${payload.fee[1]})` : "Nil"}'
+        /\: FEE/g,
+        ': ${payload.fee ? `("${payload.fee[0]}", ${payload.fee[1]})` : "Nil"}'
       )
       .replace(/EXPIRES/g, '${payload.expires ? payload.expires : "Nil"}')
       .replace(/CONTRACT_ID/g, '${payload.contractId}')

@@ -6,7 +6,7 @@ module.exports.deleteExpiredPurseTerm = (
   lookup!(\`rho:id:${payload.masterRegistryUri}\`, *entryCh) |
   for(entry <- entryCh) {
     new x in {
-      entry!(("PUBLIC_DELETE_EXPIRED_PURSE", "${payload.contractId}", "${payload.purseId}", *x)) |
+      entry!(("PUBLIC_DELETE_EXPIRED_PURSE", "${payload.contractId}", "${payload.boxId}", "${payload.purseId}", *x)) |
       for (@r <- x) {
         match r {
           String => {
@@ -14,8 +14,10 @@ module.exports.deleteExpiredPurseTerm = (
             stdout!(("failed", r))
           }
           _ => {
+            // OP_PUBLIC_DELETE_EXPIRED_PURSE_COMPLETED_BEGIN
             stdout!("completed, expired purses deleted") |
             basket!({ "status": "completed" })
+            // OP_PUBLIC_DELETE_EXPIRED_PURSE_COMPLETED_END
           }
         }
       }

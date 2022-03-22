@@ -1,6 +1,6 @@
 {
   "name": "rchain-token",
-  "version": "10.0.0",
+  "version": "16.0.0",
   "private": true,
   "description": "Fungibles and non-fungibles tokens on the RChain blockchain",
   "main": "src/index.js",
@@ -9,7 +9,8 @@
     "build:browser": "npx rollup -c",
     "test:ft": "node tests-ft/index",
     "test:nft": "node tests-nft/index",
-    "dappy:namesystem": "node cli deploy --fungible false --contract-id dappynamesystem && node cli create-purse --new-id 0 --price 50000000 --quantity 100000000 --type 0",
+    "test:credit": "node tests-credit/index",
+    "dappy:namesystem": "node cli deploy --fungible false --contract-id dappynamesystem && node cli create-purse --new-id 0 --quantity 100000000 && node cli update-purse-price --price rev,50000000 --purse-id 0",
     "dappy:namesystemanddefaults": "npm run dappy:namesystem && node cli create-purse --purses-file name-purses.json"
   },
   "repository": {
@@ -22,16 +23,15 @@
     "url": "https://github.com/fabcotech/rchain-token/issues"
   },
   "homepage": "https://github.com/fabcotech/rchain-token#readme",
-  "dependencies": {
-    "rchain-toolkit": "*",
-    "uuid": "3.4.0",
-    "dotenv": "6.2.0",
-    "blakejs": "^1.1.0"
-  },
+  "dependencies": {},
   "devDependencies": {
+    "blakejs": "^1.1.0",
+    "dotenv": "6.2.0",
+    "rchain-toolkit": "0.4.5",
+    "uuid": "3.4.0",
+    "rollup": "1.26.0",
     "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-json": "^4.0.0",
-    "rollup-plugin-node-resolve": "^5.2.0",
-    "rollup": "1.26.0"
+    "rollup-plugin-node-resolve": "^5.2.0"
   }
 }
