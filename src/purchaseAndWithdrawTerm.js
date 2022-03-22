@@ -32,7 +32,7 @@ in {
   purseIdCh!!("${payload.purseId}") |
   contractIdCh!!("${payload.contractId}") |
   newIdCh!!("${payload.newId ? payload.newId : ""}") |
-  priceCh!!(${payload.price || "Nil"}) |
+  priceCh!!(${payload.price ? "(" + payload.price + ")": "Nil"}) |
   mergeCh!!(${payload.merge}) |
   quantityCh!!(${payload.quantity}) |
   publicKeyCh!!("${payload.publicKey}") |

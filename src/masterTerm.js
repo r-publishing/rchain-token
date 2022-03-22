@@ -579,7 +579,7 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
   // boxes or contracts
 
   // { "box1": "exists", "box2": "exists" }
-  @(*vault, "boxesAll")!(Set()) |
+  @(*self, "boxesAll")!(Set()) |
 
   TreeHashMap!("init", ${payload.depth || 3}, true, *boxesReadyCh) |
 
@@ -1022,7 +1022,7 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
     } |
 
     for (@("PUBLIC_READ_BOXES", return) <= entryCh) {
-      for (@ret <<- @(*vault, "boxesAll")) {
+      for (@ret <<- @(*self, "boxesAll")) {
         @return!(ret)
       }
     } |
@@ -1214,8 +1214,8 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
                 new boxCh in {
                   TreeHashMap!("set", boxesThm, boxId, "exists", *ch2) |
                   for (_ <- ch2) {
-                    for (@boxesAll <- @(*vault, "boxesAll")) {
-                      @(*vault, "boxesAll")!(boxesAll.union(Set(payload.get("boxId")))) |
+                    for (@boxesAll <- @(*self, "boxesAll")) {
+                      @(*self, "boxesAll")!(boxesAll.union(Set(payload.get("boxId")))) |
                       @(*self, "boxes", boxId)!({}) |
                       @(*self, "boxesSuperKeys", boxId)!(Set()) |
                       @(*self, "boxConfig", boxId)!({ "publicKey": payload.get("publicKey"), "revAddress": payload.get("revAddress") }) |
