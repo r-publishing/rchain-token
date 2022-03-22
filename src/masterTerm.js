@@ -579,6 +579,8 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
   // boxes or contracts
 
   // { "box1": "exists", "box2": "exists" }
+  @(*vault, "boxesAll")!(Set()) |
+
   TreeHashMap!("init", ${payload.depth || 3}, true, *boxesReadyCh) |
 
   // { "contract1": "exists", "contract2": "exists" }
@@ -1019,6 +1021,12 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
       }
     } |
 
+    for (@("PUBLIC_READ_BOXES", return) <= entryCh) {
+      for (@ret <<- @(*vault, "boxesAll")) {
+        @return!(ret)
+      }
+    } |
+
     for (@("PUBLIC_READ_BOX", boxId, return) <= entryCh) {
       new ch1 in {
         getBoxCh!((boxId, *ch1)) |
@@ -1206,12 +1214,15 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
                 new boxCh in {
                   TreeHashMap!("set", boxesThm, boxId, "exists", *ch2) |
                   for (_ <- ch2) {
-                    @(*self, "boxes", boxId)!({}) |
-                    @(*self, "boxesSuperKeys", boxId)!(Set()) |
-                    @(*self, "boxConfig", boxId)!({ "publicKey": payload.get("publicKey"), "revAddress": payload.get("revAddress") }) |
-                    registerBoxUnlock!((true, { "boxId": boxId, "boxCh": bundle+{*boxCh} })) |
-                    initLocksForBoxCh!(boxId) |
-                    initializeOCAPOnBoxCh!((*boxCh, boxId))
+                    for (@boxesAll <- @(*vault, "boxesAll")) {
+                      @(*vault, "boxesAll")!(boxesAll.union(Set(payload.get("boxId")))) |
+                      @(*self, "boxes", boxId)!({}) |
+                      @(*self, "boxesSuperKeys", boxId)!(Set()) |
+                      @(*self, "boxConfig", boxId)!({ "publicKey": payload.get("publicKey"), "revAddress": payload.get("revAddress") }) |
+                      registerBoxUnlock!((true, { "boxId": boxId, "boxCh": bundle+{*boxCh} })) |
+                      initLocksForBoxCh!(boxId) |
+                      initializeOCAPOnBoxCh!((*boxCh, boxId))
+                    }
                   }
                 }
               } else {

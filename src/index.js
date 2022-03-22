@@ -13,6 +13,7 @@ const { readPursesTerm } = require('./readPursesTerm');
 const { readAllPursesTerm } = require('./readAllPursesTerm');
 const { readBoxTerm } = require('./readBoxTerm');
 const { readConfigTerm } = require('./readConfigTerm');
+const { readBoxesTerm } = require('./readBoxesTerm');
 const { updatePurseDataTerm } = require('./updatePurseDataTerm');
 const { readPursesDataTerm } = require('./readPursesDataTerm');
 const { updatePursePriceTerm } = require('./updatePursePriceTerm');
@@ -53,6 +54,7 @@ module.exports = {
   readBoxTerm,
   readLogsTerm,
   readConfigTerm,
+  readBoxesTerm,
   readPursesDataTerm,
 
   // utils

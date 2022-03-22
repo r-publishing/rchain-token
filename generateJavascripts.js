@@ -197,6 +197,20 @@ module.exports.readConfigTerm = (
 `
 );
 
+const readBoxesFile = fs
+  .readFileSync('./rholang/read_boxes.rho')
+  .toString('utf8');
+fs.writeFileSync(
+  './src/readBoxesTerm.js',
+  `/* GENERATED CODE, only edit rholang/*.rho files*/
+module.exports.readBoxesTerm = (
+  payload
+) => {
+  return \`${replaceEverything(readBoxesFile)}\`;
+};
+`
+);
+
 const deleteExpiredPurseFile = fs
   .readFileSync('./rholang/op_delete_expired_purse.rho')
   .toString('utf8');
