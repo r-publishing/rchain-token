@@ -597,7 +597,7 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
     for (@(str, ret) <= validateStringCh) {
       match (
         str,
-        Set("a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y", "z", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9")
+        Set("a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y", "z", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "-", "_", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z")
       ) {
         (String, az09) => {
           match (str.length() > 0,str.length() < 25) {
@@ -1422,21 +1422,36 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
                             "data": _,
                             "quantity": Int,
                             "id": String,
-                            "price": Nil,
+                            "price": _,
                             "boxId": String
                           } => {
-                            getBoxCh!((payload2.get("boxId"), *ch1)) |
-                            validateStringCh!((payload2.get("id"), *ch2)) |
-                            for (@box <- ch1; @valid <- ch2) {
-                              if (valid == true and box != Nil) {
-                                for (
-                                  _ <- @(*self, "CONTRACT_LOCK", contractId);
-                                  _ <- @(*self, "BOX_LOCK", payload2.get("boxId"))
-                                ) {
-                                  proceedCreateCh!(Nil)
+                            new ch5 in {
+                              for (_ <- ch5) {
+                                getBoxCh!((payload2.get("boxId"), *ch1)) |
+                                validateStringCh!((payload2.get("id"), *ch2)) |
+                                for (@box <- ch1; @valid <- ch2) {
+                                  if (valid == true and box != Nil) {
+                                    for (
+                                      _ <- @(*self, "CONTRACT_LOCK", contractId);
+                                      _ <- @(*self, "BOX_LOCK", payload2.get("boxId"))
+                                    ) {
+                                      proceedCreateCh!(Nil)
+                                    }
+                                  } else {
+                                    @return2!("error: invalid id or box not found")
+                                  }
                                 }
-                              } else {
-                                @return2!("error: invalid id or box not found")
+                              }
+                              match payload.get("price") {
+                                (String, Int) => {
+                                  if (payload.get("price").nth(1) == 0) {
+                                    @return!("error: price cannot be zero")
+                                  } else {
+                                    ch5!(Nil)
+                                  }
+                                }
+                                Nil => { ch5!(Nil) }
+                                _ => { @return2!("error: invalid price format") }
                               }
                             }
                           }
@@ -2401,7 +2416,7 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
     /* turn URI into a string so we can slice
     and get prefix for boxes and contracts */
     match "\${uri}" %% { "uri": *entryUri } {
-      uri => { prefixCh!(uri.slice(7, 10)) }
+      uri => { prefixCh!("") } /*uri.slice(7, 10)*/
     } |
     stdout!("rchain-token master registered at \${uri}" %% { "uri": *entryUri })
   }
