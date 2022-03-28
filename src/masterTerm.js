@@ -1422,36 +1422,21 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
                             "data": _,
                             "quantity": Int,
                             "id": String,
-                            "price": _,
+                            "price": Nil,
                             "boxId": String
                           } => {
-                            new ch5 in {
-                              for (_ <- ch5) {
-                                getBoxCh!((payload2.get("boxId"), *ch1)) |
-                                validateStringCh!((payload2.get("id"), *ch2)) |
-                                for (@box <- ch1; @valid <- ch2) {
-                                  if (valid == true and box != Nil) {
-                                    for (
-                                      _ <- @(*self, "CONTRACT_LOCK", contractId);
-                                      _ <- @(*self, "BOX_LOCK", payload2.get("boxId"))
-                                    ) {
-                                      proceedCreateCh!(Nil)
-                                    }
-                                  } else {
-                                    @return2!("error: invalid id or box not found")
-                                  }
+                            getBoxCh!((payload2.get("boxId"), *ch1)) |
+                            validateStringCh!((payload2.get("id"), *ch2)) |
+                            for (@box <- ch1; @valid <- ch2) {
+                              if (valid == true and box != Nil) {
+                                for (
+                                  _ <- @(*self, "CONTRACT_LOCK", contractId);
+                                  _ <- @(*self, "BOX_LOCK", payload2.get("boxId"))
+                                ) {
+                                  proceedCreateCh!(Nil)
                                 }
-                              }
-                              match payload.get("price") {
-                                (String, Int) => {
-                                  if (payload.get("price").nth(1) == 0) {
-                                    @return!("error: price cannot be zero")
-                                  } else {
-                                    ch5!(Nil)
-                                  }
-                                }
-                                Nil => { ch5!(Nil) }
-                                _ => { @return2!("error: invalid price format") }
+                              } else {
+                                @return2!("error: invalid id or box not found")
                               }
                             }
                           }
@@ -1491,6 +1476,7 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
           }
         }
       } |
+
 
       for (@("CREDIT", payload, return) <= @boxCh) {
         new ch1, ch2, ch3, ch4, ch5, ch6, ch7, ch8, ch9, proceedCreditCh, unlock in {
