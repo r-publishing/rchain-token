@@ -974,7 +974,7 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
                 } => {
                   for (@pursesDataThm <<- @(*self, "pursesData", contractId)) {
                     for (@pursesThm <<- @(*self, "purses", contractId)) {
-                      TreeHashMap!("set", pursesThm, purse.get("id"), purse, *ch3) |
+                      TreeHashMap!("set", pursesThm, purse.get("id"), purse.set("chunks", data.size()), *ch3) |
                       TreeHashMap!("set", pursesDataThm, purse.get("id"), data, *ch4)
                     }
                   } |
@@ -1646,7 +1646,8 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
             @return!(result)
           } |
           match payload {
-            { "data": _, "contractId": String, "purseId": String } => {
+            { "data": Map, "contractId": String, "purseId": String } => {
+              stdout!("payload ok") |
               getContractPursesThmCh!((payload.get("contractId"), *ch1)) |
               for (@pursesThm <- ch1) {
                 if (pursesThm != Nil) {
@@ -1654,7 +1655,7 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
                     _ <- @(*self, "BOX_LOCK", boxId);
                     _ <- @(*self, "CONTRACT_LOCK", payload.get("contractId"))
                   ) {
-                    proceeedUpdateCh!(Nil)
+                    proceeedUpdateCh!(pursesThm)
                   }
                 } else {
                   @return!("error: contract not found")
@@ -1668,16 +1669,49 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
 
           // RACE SAFE / RESOURCES LOCKED
           // after lock of 1 contract and 1 box
-          for (_ <- proceeedUpdateCh) {
+          for (@pursesThm <- proceeedUpdateCh) {
+            stdout!("proceedUpdateCh") |
             getBoxCh!((boxId, *ch3)) |
             for (@box <- ch3) {
               getPurseCh!((box, payload.get("contractId"), payload.get("purseId"), *ch4)) |
               for (@purse <- ch4) {
                 if (purse != Nil) {
                   for (@pursesDataThm <<- @(*self, "pursesData", payload.get("contractId"))) {
-                    TreeHashMap!("set", pursesDataThm, payload.get("purseId"), payload.get("data"), *ch2) |
-                    for (_ <- ch2) {
-                      unlock!((true, Nil))
+                    new ch5, ch6, ch7 in {
+                      TreeHashMap!("get", pursesDataThm, payload.get("purseId"), *ch5) |
+                      for (@data <- ch5) {
+                        match data {
+                          Map => {
+                            stdout!("got data chunks") |
+                            stdout!(data) |
+                            stdout!(payload.get("data")) |
+                            TreeHashMap!("set", pursesDataThm, payload.get("purseId"), data.union(payload.get("data")), *ch2) |
+                            for (_ <- ch2) {
+                              stdout!("data updated") |
+                              TreeHashMap!("get", pursesDataThm, payload.get("purseId"), *ch5) |
+                              for (@data2 <- ch5) {
+                                TreeHashMap!("set", pursesThm, payload.get("purseId"), purse.set("chunks", data2.size()), *ch6) |
+                                for (_ <- ch6) {
+                                  unlock!((true, Nil))
+                                }
+                              }
+                            }
+                          }
+                          Nil => {
+                            stdout!("no data chunks") |
+                            TreeHashMap!("set", pursesDataThm, payload.get("purseId"), payload.get("data"), *ch2) |
+                            for (_ <- ch2) {
+                              stdout!("data updated") |
+                              unlock!((true, Nil))
+                            }
+                          }
+                          _ => {
+                            stdout!("unsupported data format") |
+                            unlock!((false, Nil))
+
+                          }
+                        }
+                      }
                     }
                   }
                 } else {
@@ -2193,20 +2227,28 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
                 } |
 
                 for (_ <- ch30; _ <- ch31; @amountAndFeeAmount <- ch39) {
-                  // create new purse for the buyer
-                  makePurseCh!((
-                    payload.get("contractId"),
-                    // keep quantity of existing purse
-                    purseForSale
-                      .set("boxId", boxId)
-                      .set("price", Nil)
-                      .set("quantity", payload.get("quantity"))
-                      // will only be considered for nft, purchase from purse "0"
-                      .set("newId", payload.get("newId")),
-                    payload.get("data"),
-                    true,
-                    *ch36
-                  )) |
+                  new ch42, tmpCh in {
+                    getContractPursesDataThmCh!((payload.get("contractId"), *tmpCh)) |
+                    for (@pursesDataThm <- tmpCh) {
+                      TreeHashMap!("get", pursesDataThm, payload.get("purseId"), *ch42) |
+                      for (@data <- ch42) {
+                        // create new purse for the buyer
+                        makePurseCh!((
+                          payload.get("contractId"),
+                          // keep quantity of existing purse
+                          purseForSale
+                            .set("boxId", boxId)
+                            .set("price", Nil)
+                            .set("quantity", payload.get("quantity"))
+                            // will only be considered for nft, purchase from purse "0"
+                            .set("newId", payload.get("newId")),
+                          data,
+                          true,
+                          *ch36
+                        )) 
+                      }
+                    }
+                  } |
                   // create new purse for the seller
                   makePurseCh!((
                     purseForSale.get("price").nth(0),

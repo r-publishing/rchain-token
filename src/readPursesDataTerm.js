@@ -9,11 +9,14 @@ module.exports.readPursesDataTerm = (payload) => {
       `entry!(("PUBLIC_READ_PURSE_DATA", { "contractId": "${payload.contractId}", "purseId": "${p}" }, *channel${i})) |`;
   });
   rholang += '\n';
+
   rholang += `for (${payload.pursesIds
-    .map((p, i) => '@value' + i + ' <- channel' + i)
+    .map((p, i) => {
+      return `@{{${payload.chunks[p].map((chunkId) => `"${chunkId}": value${i}chunk${chunkId} /\\ String`).join(',') }, ...rest}}` + ' <- channel' + i
+    })
     .join('; ')}) {\n`;
   rholang += `  return!({}${payload.pursesIds
-    .map((p, i) => `.union({ "${p}": value${i} })`)
+    .map((p, i) => `.union({ "${p}": {${payload.chunks[p].map((chunkId) => `"${chunkId}": value${i}chunk${chunkId}`).join(", ")} }})`)
     .join('')})\n`;
   rholang += `}\n}`;
 
