@@ -2,6 +2,7 @@ module.exports.createPursesTerm = (payload) => {
   const ids = Object.keys(payload.purses);
   ids.forEach((id) => {
     payload.purses[id].data = payload.data[id] || null;
+    payload.purses[id].price = `@PRICE_START@${payload.purses[id].price}@PRICE_END@`.replaceAll("\"", '@DOUBLE_QUOTE_PLACEHOLDER@');
   });
 
   let rholang = `new ${ids.map((id, i) => 'channel' + i)} in {`;
@@ -27,5 +28,5 @@ module.exports.createPursesTerm = (payload) => {
     for (superKey <<- @(*deployerId, "rchain-token-contract", "${payload.masterRegistryUri}", "${payload.contractId}")) {
       ${rholang}
     }
-  }`;
+  }`.replaceAll(`"@PRICE_START@`, "").replaceAll(`@PRICE_END@"`, "").replaceAll(`"@PRICE_START@`, "").replaceAll(`@PRICE_END@"`, "").replaceAll("@DOUBLE_QUOTE_PLACEHOLDER@", '"');
 };

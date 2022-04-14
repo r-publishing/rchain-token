@@ -510,17 +510,17 @@ in {
             .delete("newId")
           {
             purse => {
-              match purse {
+              match [purse.get("quantity"), purse.get("timestamp"), purse.get("boxId"), purse.get("id"), purse.get("price")] {
                 {
-                  "quantity": Int,
-                  "timestamp": Int,
-                  "boxId": String,
-                  "id": String,
-                  "price": (String, Int) \/ (String, String) \/ Nil
+                  [Int,Int,String,String,(String, Int) \/ (String, String) \/ Nil]
                 } => {
                   for (@pursesDataThm <<- @(*self, "pursesData", contractId)) {
                     for (@pursesThm <<- @(*self, "purses", contractId)) {
-                      TreeHashMap!("set", pursesThm, purse.get("id"), purse.set("chunks", data.size()), *ch3) |
+                      if (data == Nil) {
+                        TreeHashMap!("set", pursesThm, purse.get("id"), purse.set("chunks", data), *ch3)
+                      } else {
+                        TreeHashMap!("set", pursesThm, purse.get("id"), purse.set("chunks", data.size()), *ch3)
+                      } |
                       TreeHashMap!("set", pursesDataThm, purse.get("id"), data, *ch4)
                     }
                   } |
@@ -968,21 +968,36 @@ in {
                             "data": _,
                             "quantity": Int,
                             "id": String,
-                            "price": Nil,
+                            "price": _,
                             "boxId": String
                           } => {
-                            getBoxCh!((payload2.get("boxId"), *ch1)) |
-                            validateStringCh!((payload2.get("id"), *ch2)) |
-                            for (@box <- ch1; @valid <- ch2) {
-                              if (valid == true and box != Nil) {
-                                for (
-                                  _ <- @(*self, "CONTRACT_LOCK", contractId);
-                                  _ <- @(*self, "BOX_LOCK", payload2.get("boxId"))
-                                ) {
-                                  proceedCreateCh!(Nil)
+                            new ch5 in {
+                              for (_ <- ch5) {
+                                getBoxCh!((payload2.get("boxId"), *ch1)) |
+                                validateStringCh!((payload2.get("id"), *ch2)) |
+                                for (@box <- ch1; @valid <- ch2) {
+                                  if (valid == true and box != Nil) {
+                                    for (
+                                      _ <- @(*self, "CONTRACT_LOCK", contractId);
+                                      _ <- @(*self, "BOX_LOCK", payload2.get("boxId"))
+                                    ) {
+                                      proceedCreateCh!(Nil)
+                                    }
+                                  } else {
+                                    @return2!("error: invalid id or box not found")
+                                  }
                                 }
-                              } else {
-                                @return2!("error: invalid id or box not found")
+                              } |
+                              match payload.get("price") {
+                                (String, Int) => {
+                                  if (payload.get("price").nth(1) == 0) {
+                                    @return2!("error: price cannot be zero")
+                                  } else {
+                                    ch5!(Nil)
+                                  }
+                                }
+                                Nil => { ch5!(Nil) }
+                                _ => { @return2!("error: invalid price format") }
                               }
                             }
                           }
