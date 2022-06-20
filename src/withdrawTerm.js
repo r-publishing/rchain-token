@@ -2,7 +2,7 @@
 module.exports.withdrawTerm = (
   payload
 ) => {
-  return `new basket,
+  return `new basket(\`rho:rchain:deployId\`),
   withdrawReturnCh,
   boxCh,
   stdout(\`rho:io:stdout\`),

@@ -11,12 +11,10 @@ module.exports.readPursesDataTerm = (payload) => {
   rholang += '\n';
 
   rholang += `for (${payload.pursesIds
-    .map((p, i) => {
-      return `@{{${payload.chunks[p].map((chunkId) => `"${chunkId}": value${i}chunk${chunkId} /\\ String`).join(',') }, ...rest}}` + ' <- channel' + i
-    })
+    .map((p, i) => '@value' + i + ' <- channel' + i)
     .join('; ')}) {\n`;
   rholang += `  return!({}${payload.pursesIds
-    .map((p, i) => `.union({ "${p}": {${payload.chunks[p].map((chunkId) => `"${chunkId}": value${i}chunk${chunkId}`).join(", ")} }})`)
+    .map((p, i) => `.union({ "${p}": value${i}.slice(${parseInt(payload.chunks[p][0])}, ${payload.chunks[p].length + parseInt(payload.chunks[p][0])}) })`)
     .join('')})\n`;
   rholang += `}\n}`;
 

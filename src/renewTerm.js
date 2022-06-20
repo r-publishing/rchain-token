@@ -4,7 +4,7 @@ module.exports.renewTerm = (
 ) => {
   return `
 new
-  basket,
+  basket(\`rho:rchain:deployId\`),
   boxCh,
   returnCh,
 

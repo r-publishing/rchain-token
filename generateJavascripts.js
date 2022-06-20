@@ -30,6 +30,7 @@ const replaceEverything = (a) => {
       )
       .replace('NEW_NONCE', '${payload.newNonce}')
       .replace('UPDATE_PURSE_DATAA', `\${payload.data}`)
+      .replace('UPDATE_PURSE_POSS', `\${payload.pos}`)
       .replace('PURCHASE_PURSE_DATA', `\${payload.data}`)
       .replace('SWAP_DATA', `\${payload.data}`)
       .replace(

@@ -4,7 +4,7 @@ module.exports.purchaseAndWithdrawTerm = (
 ) => {
   return `
 new
-  basket,
+  basket(\`rho:rchain:deployId\`),
   revVaultCh,
   boxCh,
 

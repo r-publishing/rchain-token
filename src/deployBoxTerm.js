@@ -2,7 +2,7 @@
 module.exports.deployBoxTerm = (
   payload
 ) => {
-  return `new basket,
+  return `new basket(\`rho:rchain:deployId\`),
   masterEntryCh,
   registerBoxReturnCh,
   stdout(\`rho:io:stdout\`),

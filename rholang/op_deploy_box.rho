@@ -1,4 +1,4 @@
-new basket,
+new basket(`rho:rchain:deployId`),
   masterEntryCh,
   registerBoxReturnCh,
   stdout(`rho:io:stdout`),

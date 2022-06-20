@@ -1,6 +1,6 @@
 /* GENERATED CODE, only edit rholang/*.rho files*/
 module.exports.deployTerm = (payload) => {
-    return `new basket,
+    return `new basket(\`rho:rchain:deployId\`),
   masterEntryCh,
   registerContractReturnCh,
   boxCh,

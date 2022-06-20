@@ -2,7 +2,7 @@
 module.exports.updatePurseDataTerm = (
   payload
 ) => {
-  return `new basket,
+  return `new basket(\`rho:rchain:deployId\`),
   returnCh,
   boxCh,
   stdout(\`rho:io:stdout\`),
@@ -11,7 +11,7 @@ module.exports.updatePurseDataTerm = (
 in {
 
   for (boxCh <<- @(*deployerId, "rchain-token-box", "${payload.masterRegistryUri}", "${payload.boxId}")) {
-    boxCh!(("UPDATE_PURSE_DATA", { "contractId": "${payload.contractId}", "data": ${payload.data}, "purseId": "${payload.purseId}" }, *returnCh)) |
+    boxCh!(("UPDATE_PURSE_DATA", { "contractId": "${payload.contractId}", "data": ${payload.data}, "pos": ${payload.pos}, "purseId": "${payload.purseId}" }, *returnCh)) |
     for (@r <- returnCh) {
       match r {
         String => {

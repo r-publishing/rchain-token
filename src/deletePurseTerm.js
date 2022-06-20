@@ -2,7 +2,7 @@
 module.exports.deletePurseTerm = (
   payload
 ) => {
-  return `new basket,
+  return `new basket(\`rho:rchain:deployId\`),
   returnCh,
   stdout(\`rho:io:stdout\`),
   deployerId(\`rho:rchain:deployerId\`),

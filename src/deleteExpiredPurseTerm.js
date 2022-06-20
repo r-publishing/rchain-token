@@ -2,7 +2,7 @@
 module.exports.deleteExpiredPurseTerm = (
   payload
 ) => {
-  return `new basket, entryCh, lookup(\`rho:registry:lookup\`), stdout(\`rho:io:stdout\`) in {
+  return `new basket(\`rho:rchain:deployId\`), entryCh, lookup(\`rho:registry:lookup\`), stdout(\`rho:io:stdout\`) in {
   lookup!(\`rho:id:${payload.masterRegistryUri}\`, *entryCh) |
   for(entry <- entryCh) {
     new x in {
