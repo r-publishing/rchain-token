@@ -2498,28 +2498,37 @@ new MakeNode, ByteArrayToNybbleList, TreeHashMapSetter, TreeHashMapGetter, TreeH
                     for (@buyerPurseThm <- ch32) {
                       removeOrAjustQuantityCh!((buyerPurseThm, purseForSale.get("price").nth(0), purseForTransfer, purseForTransfer.get("quantity"), *ch31))
                     } |
-
                     for (_ <- ch30; _ <- ch31) {
-                      // create new purse for the buyer
-                      makePurseCh!((
-                        payload.get("contractId"),
-                        purseForSale
-                          .set("boxId", boxId)
-                          .set("price", Nil),
-                        payload.get("data"),
-                        true,
-                        *ch36
-                      )) |
-                      // create new purse for the seller
-                      makePurseCh!((
-                        purseForSale.get("price").nth(0),
-                        purseForTransfer
-                          .set("boxId", purseForSale.get("boxId"))
-                          .set("price", Nil),
-                        payload.get("data"),
-                        true,
-                        *ch38
-                      )) |
+
+                      new ch42, tmpCh in {
+                          getContractPursesDataThmCh!((payload.get("contractId"), *tmpCh)) |
+                          for (@pursesDataThm <- tmpCh) {
+                            TreeHashMap!("get", pursesDataThm, payload.get("purseId"), *ch42) |
+                            for (@data <- ch42) {
+                              // create new purse for the buyer
+                              makePurseCh!((
+                                payload.get("contractId"),
+                                purseForSale
+                                  .set("boxId", boxId)
+                                  .set("price", Nil),
+                                data,
+                                true,
+                                *ch36
+                              )) |
+                              // create new purse for the seller
+                              makePurseCh!((
+                                purseForSale.get("price").nth(0),
+                                purseForTransfer
+                                  .set("boxId", purseForSale.get("boxId"))
+                                  .set("price", Nil),
+                                data,
+                                true,
+                                *ch38
+                              ))
+                            }
+                          }
+                      } |
+
                       for (@makeBuyerPurseResult <- ch36; @makeSellerPurseResult <- ch38) {
                         match makeBuyerPurseResult {
                           String => {
